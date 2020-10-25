@@ -1,4 +1,4 @@
-import virtualbox, discord, sys, asyncio
+import virtualbox, discord, sys, asyncio, traceback
 from discord.ext import commands
 from configparser import ConfigParser as configparser
 
@@ -150,6 +150,11 @@ async def on_ready():
     get_vm_screenshot(bot.session, 'temp.png')
     channel = bot.get_channel(bot.channel_id)
     await channel.send('Winbot has started! Current VM state:', file=discord.File('temp.png'))
+
+@bot.event
+async def on_command_error(ctx, exception):
+    tb_data = ''.join(traceback.format_tb(exception.__traceback__))
+    await ctx.send(f"Sorry, an error occurred.\n```\n{repr(exception)}\n{tb_data}\n```")
 
 #Ping pong!
 @bot.command()
