@@ -1,4 +1,4 @@
-import virtualbox, asyncio, winbot_common
+import virtualbox, asyncio, winbot_common, discord
 from discord.ext import commands
 
 #Ping pong!
@@ -7,15 +7,13 @@ async def ping(ctx):
     """Ping Pong!
     
     If the bot is alive, it will reply with "Pong!\""""
-    for key in ctx:
-        print(f"debug: {key} is {getattr(ctx.key)}")
     await ctx.send('Pong!')
 
 #Get image of VM
 @commands.command()
 async def screen(ctx):
     """Get a screenshot of the VM."""
-    get_vm_screenshot(bot.session, 'temp.png')
+    winbot_common.get_vm_screenshot(ctx.bot.session, 'temp.png')
     await ctx.send('Say cheese!', file=discord.File('temp.png'))
 
 #Reset the VM
@@ -23,9 +21,9 @@ async def screen(ctx):
 async def reset(ctx):
     """Reset the VM. Owner only."""
     if ctx.author.id == owner_id:
-        bot.session.console.reset()
+        ctx.bot.session.console.reset()
         await asyncio.sleep(0.5)
-        get_vm_screenshot(bot.session, 'temp.png')
+        winbot_common.get_vm_screenshot(ctx.bot.session, 'temp.png')
         await ctx.send('Done!', file=discord.File('temp.png'))
     else:
         await ctx.send("You are not the owner.")
@@ -36,17 +34,17 @@ async def reload(ctx):
     """Reload the bot config files.
     
     Will also reload other config files, when added."""
-    if ctx.author.id == bot.owner_id:
-        _, _, vm_name, bot.owner_id, bot.channel_id = load_config(config_file)
+    if ctx.author.id == ctx.bot.owner_id:
+        _, _, vm_name, ctx.bot.owner_id, ctx.bot.channel_id = load_config(config_file)
         print(f"VM name: {vm_name}")
         print(f"Owner ID: {owner_id}")
         print(f"Channel ID: {channel_id}")
         try:
-            bot.session.unlock_machine()
+            ctx.bot.session.unlock_machine()
         except:
             print("Warning: session not unlocked. You probably don't need to worry about this.")
-        bot.vm = bot.vbox.find_machine(vm_name)
-        bot.session = bot.vm.create_session()
+        ctx.bot.vm = ctx.bot.vbox.find_machine(vm_name)
+        ctx.bot.session = ctx.bot.vm.create_session()
         await ctx.send("Config reloaded!")
     else:
         await ctx.send("You are not the owner.")

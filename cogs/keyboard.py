@@ -1,4 +1,4 @@
-import virtualbox, asyncio, winbot_common
+import virtualbox, asyncio, winbot_common, discord
 from discord.ext import commands
 
 keycodes = {
@@ -98,9 +98,9 @@ keycodes = {
 @commands.command()
 async def type(ctx, *, arg):
     """Sends a long string of text to the VM, followed by a newline."""
-    bot.session.console.keyboard.put_keys(arg + '\n')
+    ctx.bot.session.console.keyboard.put_keys(arg + '\n')
     await asyncio.sleep(0.5)
-    get_vm_screenshot(bot.session, 'temp.png')
+    winbot_common.get_vm_screenshot(ctx.bot.session, 'temp.png')
     await ctx.send('Done!', file=discord.File('temp.png'))
 
 #Send special buttons to the VM
@@ -122,12 +122,12 @@ async def press(ctx, *args):
             else:
                 temp_scancodes = [*temp_scancodes, *keycodes[key]]
         print(temp_scancodes)
-        bot.session.console.keyboard.put_scancodes(temp_scancodes)
-        release_special_keys(bot.session)
+        ctx.bot.session.console.keyboard.put_scancodes(temp_scancodes)
+        release_special_keys(ctx.bot.session)
         await asyncio.sleep(0.5)
-        get_vm_screenshot(bot.session, 'temp.png')
+        winbot_common.get_vm_screenshot(ctx.bot.session, 'temp.png')
         await ctx.send('Done!', file=discord.File('temp.png'))
-        bot.session.console.keyboard.release_keys()
+        ctx.bot.session.console.keyboard.release_keys()
     except Exception as e:
         print(repr(e))
         await ctx.send("Something went wrong whilst doing that, try again or check the log!")

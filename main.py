@@ -72,12 +72,21 @@ async def on_ready():
 #Reload a cog - i.e if changes were made:
 @bot.command()
 async def reloadcog(ctx, reload_cog):
+    """Reload a specific cog. Owner only."""
     if ctx.author.id == owner_id:
         bot.reload_extension(reload_cog)
         print(f"Reloaded {reload_cog}!")
         await ctx.send(f"Reloaded {reload_cog}!")
 
-        
+#Reload all cogs - i.e if changes were made:
+@bot.command()
+async def reloadall(ctx):
+    """Reload all cogs. Owner only."""
+    if ctx.author.id == owner_id:
+        for reload_cog in cogs:
+            bot.reload_extension(reload_cog)
+            print(f"Reloaded {reload_cog}!")
+            await ctx.send(f"Reloaded {reload_cog}!")        
 
 #Handle exceptions.
 @bot.event
