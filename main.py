@@ -345,6 +345,7 @@ async def reset(ctx):
 
 #Reload some bot config paramaters, but not all of them
 @bot.command()
+@commands.has_any_role('vm bot user')
 async def reload(ctx):
     """Reload the bot config files.
     
@@ -363,5 +364,4 @@ async def reload(ctx):
         await ctx.send("Config reloaded!")
     else:
         await ctx.send("You are not the owner.")
-
 bot.run(token)
