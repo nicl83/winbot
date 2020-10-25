@@ -267,68 +267,54 @@ async def release(ctx, *args):
 
 #Move the mouse right (+X).
 @mouse.command()
-async def right(ctx, *args):
-    if len(args) == 2:
-        bot.session.console.mouse.put_mouse_event(int(args[1]), 0, 0, 0, bot.mouse_state)
-        await asyncio.sleep(0.5)
-        get_vm_screenshot(bot.session, 'temp.png')
-        await ctx.send('Done!', file=discord.File('temp.png'))
-    else:
-        await ctx.send('I need more arguments!')
+async def right(ctx, pixels):
+    bot.session.console.mouse.put_mouse_event(int(pixels), 0, 0, 0, bot.mouse_state)
+    await asyncio.sleep(0.5)
+    get_vm_screenshot(bot.session, 'temp.png')
+    await ctx.send('Done!', file=discord.File('temp.png'))
 
 #Move the mouse left (-X).
 @mouse.command()
-async def left(ctx, *args):
-    if len(args) == 2:
-        bot.session.console.mouse.put_mouse_event(0-int(args[1]), 0, 0, 0, bot.mouse_state)
-        await asyncio.sleep(0.5)
-        get_vm_screenshot(bot.session, 'temp.png')
-        await ctx.send('Done!', file=discord.File('temp.png'))
-    else:
-        await ctx.send('I need more arguments!')
+async def left(ctx, pixels):
+    bot.session.console.mouse.put_mouse_event(0-int(pixels), 0, 0, 0, bot.mouse_state)
+    await asyncio.sleep(0.5)
+    get_vm_screenshot(bot.session, 'temp.png')
+    await ctx.send('Done!', file=discord.File('temp.png'))
 
 #Move the mouse down (+Y).
-async def down(ctx, *args):
-    if len(args) == 2:
-        bot.session.console.mouse.put_mouse_event(0, int(args[1]), 0, 0, bot.mouse_state)
-        await asyncio.sleep(0.5)
-        get_vm_screenshot(bot.session, 'temp.png')
-        await ctx.send('Done!', file=discord.File('temp.png'))
-    else:
-        await ctx.send('I need more arguments!')
+@mouse.command()
+async def down(ctx, pixels):
+    bot.session.console.mouse.put_mouse_event(0, int(pixels), 0, 0, bot.mouse_state)
+    await asyncio.sleep(0.5)
+    get_vm_screenshot(bot.session, 'temp.png')
+    await ctx.send('Done!', file=discord.File('temp.png'))
 
 #Move the mouse up (-Y).
 @mouse.command()
-async def up(ctx, *args):
-    if len(args) == 2:
-        bot.session.console.mouse.put_mouse_event(0, 0-int(args[1]), 0, 0, bot.mouse_state)
-        await asyncio.sleep(0.5)
-        get_vm_screenshot(bot.session, 'temp.png')
-        await ctx.send('Done!', file=discord.File('temp.png'))
-    else:
-        await ctx.send('I need more arguments!') 
+async def up(ctx, pixels):
+    bot.session.console.mouse.put_mouse_event(0, 0-int(pixels), 0, 0, bot.mouse_state)
+    await asyncio.sleep(0.5)
+    get_vm_screenshot(bot.session, 'temp.png')
+    await ctx.send('Done!', file=discord.File('temp.png'))
 
 #Scroll the mouse wheel.
 @mouse.command()
-async def scroll(ctx, *args):
-    if len(args) == 2:
-        bot.session.console.mouse.put_mouse_event(0, 0, int(args[1]), 0, bot.mouse_state)
-        await asyncio.sleep(0.5)
-        get_vm_screenshot(bot.session, 'temp.png')
-        await ctx.send('Done!', file=discord.File('temp.png'))
-    else:
-        await ctx.send('I need more arguments!')
+async def scroll(ctx, pixels):
+    bot.session.console.mouse.put_mouse_event(0, 0, int(pixels), 0, bot.mouse_state)
+    await asyncio.sleep(0.5)
+    get_vm_screenshot(bot.session, 'temp.png')
+    await ctx.send('Done!', file=discord.File('temp.png'))
 
 #Send a raw put_mouse_event command. (Semi-secret)    
 @mouse.command()
 async def rawcommand(ctx, *args):
-        if len(args) == 6:
+        if len(args) == 5:
             bot.session.console.mouse.put_mouse_event(int(args[1]), int(args[2]), int(args[3]), int(args[4]), int(args[5]))
             await asyncio.sleep(0.5)
             get_vm_screenshot(bot.session, 'temp.png')
             await ctx.send('Done!', file=discord.File('temp.png'))
         else:
-            await ctx.send('I need more arguments!')
+            await ctx.send("uh uh uh, you didn't say the magic words!")
 
 
 
