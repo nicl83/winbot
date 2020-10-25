@@ -1,4 +1,4 @@
-import virtualbox, discord, sys, asyncio
+import virtualbox, discord, sys, asyncio, random
 from discord.ext import commands
 from configparser import ConfigParser as configparser
 
@@ -216,8 +216,77 @@ async def press(ctx, *args):
 @bot.command()
 async def mouse(ctx, *args):
     """Do mouse shit.
-    
     Move the mouse around. Valid commands: up, down, left, right, click, rclick, clickhold, rclickhold, release, scroll"""
+    if args[0] == "random":
+        fuck = random.randint(1,12)
+        if fuck=1: # click
+            bot.mouse_state = 0x01
+            bot.session.console.mouse.put_mouse_event(0, 0, 0, 0, bot.mouse_state)
+            bot.session.console.mouse.put_mouse_event(0, 0, 0, 0, 0x00)
+            await asyncio.sleep(0.5)
+            get_vm_screenshot(bot.session, 'temp.png')
+            await ctx.send('Done!', file=discord.File('temp.png'))
+        elif fuck=2: # clickhold
+            bot.mouse_state = 0x01
+            bot.session.console.mouse.put_mouse_event(0, 0, 0, 0, bot.mouse_state)
+            await asyncio.sleep(0.5)
+            get_vm_screenshot(bot.session, 'temp.png')
+            await ctx.send('Done!', file=discord.File('temp.png'))
+        elif fuck=3: # rclick
+            bot.mouse_state = 0x02
+            bot.session.console.mouse.put_mouse_event(0, 0, 0, 0, bot.mouse_state)
+            bot.session.console.mouse.put_mouse_event(0, 0, 0, 0, 0x00)
+            await asyncio.sleep(0.5)
+            get_vm_screenshot(bot.session, 'temp.png')
+            await ctx.send('Done!', file=discord.File('temp.png'))
+        elif fuck=4: # rclickhold
+            bot.mouse_state = 0x02
+            bot.session.console.mouse.put_mouse_event(0, 0, 0, 0, bot.mouse_state)
+            await asyncio.sleep(0.5)
+            get_vm_screenshot(bot.session, 'temp.png')
+            await ctx.send('Done!', file=discord.File('temp.png'))
+        elif fuck=5: # release
+            bot.mouse_state = 0x00
+            bot.session.console.mouse.put_mouse_event(0, 0, 0, 0, bot.mouse_state)
+            await asyncio.sleep(0.5)
+            get_vm_screenshot(bot.session, 'temp.png')
+            await ctx.send('Done!', file=discord.File('temp.png'))
+        elif fuck=6: # right
+            bot.session.console.mouse.put_mouse_event(random.randint(0,800), 0, 0, 0, bot.mouse_state)
+            await asyncio.sleep(0.5)
+            get_vm_screenshot(bot.session, 'temp.png')
+            await ctx.send('Done!', file=discord.File('temp.png'))
+        elif fuck=7: # left
+            bot.session.console.mouse.put_mouse_event(0-(random.randint(0,800), 0, 0, 0, bot.mouse_state)
+            await asyncio.sleep(0.5)
+            get_vm_screenshot(bot.session, 'temp.png')
+            await ctx.send('Done!', file=discord.File('temp.png'))
+        elif fuck=8: # up
+            bot.session.console.mouse.put_mouse_event(0, 0-(random.randint(0,600), 0, 0, bot.mouse_state)
+            await asyncio.sleep(0.5)
+            get_vm_screenshot(bot.session, 'temp.png')
+            await ctx.send('Done!', file=discord.File('temp.png'))
+        elif fuck=9: # down
+            bot.session.console.mouse.put_mouse_event(0, random.randint(0,600), 0, 0, bot.mouse_state)
+            await asyncio.sleep(0.5)
+            get_vm_screenshot(bot.session, 'temp.png')
+            await ctx.send('Done!', file=discord.File('temp.png'))
+        elif fuck=10: # absx
+            bot.session.console.mouse.put_mouse_event_absolute(random.randint(0,800), 0, 0, 0, bot.mouse_state)
+            await asyncio.sleep(0.5)
+            get_vm_screenshot(bot.session, 'temp.png')
+            await ctx.send('Done!', file=discord.File('temp.png'))
+        elif fuck=11: # absy
+            bot.session.console.mouse.put_mouse_event_absolute(0, random,randint(0,600), 0, 0, bot.mouse_state)
+            await asyncio.sleep(0.5)
+            get_vm_screenshot(bot.session, 'temp.png')
+            await ctx.send('Done!', file=discord.File('temp.png'))
+        elif fuck=12: # scroll
+            bot.session.console.mouse.put_mouse_event(0, 0, int(args[1]), 0, bot.mouse_state)
+            await asyncio.sleep(0.5)
+            get_vm_screenshot(bot.session, 'temp.png')
+            await ctx.send('Done!', file=discord.File('temp.png'))
+        
     if args[0] == "click":
         bot.mouse_state = 0x01
         bot.session.console.mouse.put_mouse_event(0, 0, 0, 0, bot.mouse_state)
