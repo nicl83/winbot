@@ -212,6 +212,7 @@ keycodes_no_up = {
     'numpad*': (0x37),
     'alt': (0x38),
     'space': (0x39),
+    ' ': (0x39),
     'caps': (0x3a),
     'f1': (0x3b),
     'f2': (0x3c),
@@ -308,6 +309,9 @@ async def type(ctx, *, arg):
     key_event_list = [
         {"type": "number", "data": key} for key in temp_scancodes
     ]
+    key_event_list.append(
+        {"type": "number", "data": keycodes_no_up['enter']}
+    )
     await vm_session.execute(
         cmd="send-key",
         arguments={"keys": key_event_list}
