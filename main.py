@@ -143,6 +143,99 @@ keycodes = {
     'win': (0xe0, 0x5b, 0xe0, 0xdb)
 }
 
+keycodes_no_up = {
+    'esc': (0x01),
+    '1': (0x02),
+    '2': (0x03),
+    '3': (0x04),
+    '4': (0x05),
+    '5': (0x06),
+    '6': (0x07),
+    '7': (0x08),
+    '8': (0x09),
+    '9': (0x0A),
+    '0': (0x0B),
+    '-': (0x0C),
+    '+': (0x0D),
+    'backspace': (0x0e),
+    'tab': (0x0f),
+    'q': (0x10),
+    'w': (0x11),
+    'e': (0x12),
+    'r': (0x13),
+    't': (0x14),
+    'y': (0x15),
+    'u': (0x16),
+    'i': (0x17),
+    'o': (0x18),
+    'p': (0x19),
+    '[': (0x1a),
+    ']': (0x1b),
+    'enter': (0x1c),
+    'ctrl': (0x1d),
+    'a': (0x1e),
+    's': (0x1f),
+    'd': (0x20),
+    'f': (0x21),
+    'g': (0x22),
+    'h': (0x23),
+    'j': (0x24),
+    'k': (0x25),
+    'l': (0x26),
+    ';': (0x27),
+    "'": (0x28),
+    '~': (0x29),
+    'shift': (0x2a),
+    '\\': (0x2b),
+    'z': (0x2c),
+    'x': (0x2d),
+    'c': (0x2e),
+    'v': (0x2f),
+    'b': (0x30),
+    'n': (0x31),
+    'm': (0x32),
+    ',': (0x33),
+    '.': (0x34),
+    '/': (0x35),
+    'rshift': (0x36),
+    'numpad*': (0x37),
+    'alt': (0x38),
+    'space': (0x39),
+    'caps': (0x3a),
+    'f1': (0x3b),
+    'f2': (0x3c),
+    'f3': (0x3d),
+    'f4': (0x3e),
+    'f5': (0x3f),
+    'f6': (0x40),
+    'f7': (0x41),
+    'f8': (0x42),
+    'f9': (0x43),
+    'f10': (0x44),
+    'numlock': (0x45),
+    'scrolllock': (0x46),
+    'numpad7': (0x47),
+    'numpad8': (0x48),
+    'numpad9': (0x49),
+    'keypad-': (0x4a),
+    'numpad4': (0x4b),
+    'numpad5': (0x4c),
+    'numpad6': (0x4d),
+    'numpad+': (0x4e),
+    'numpad1': (0x4f),
+    'numpad2': (0x50),
+    'numpad3': (0x51),
+    'numpad0': (0x52),
+    'numpad.': (0x53),
+    'up': (0xe0, 0x48),
+    'left': (0xe0, 0x4b),
+    'right': (0xe0, 0x4d),
+    'down': (0xe0, 0x50),
+    'pgup': (0xe0, 0x49),
+    'pgdown': (0xe0, 0x51),
+    'win': (0xe0, 0x5b)
+}
+
 intents = discord.Intents(messages=True, guilds=True, message_content=True)
 bot = commands.Bot(command_prefix = prefix, intents = intents, owner_id=owner_id)
 mouse_state = dict()
@@ -193,9 +286,15 @@ async def screen(ctx):
 async def type(ctx, *, arg):
     """Sends a long string of text to the VM, followed by a newline."""
     global vm_session
-    # vm_session.console.keyboard.put_keys(arg + '\n')
+    temp_scancodes = []
+    for key in arg:
+        print(keycodes[key])
+        if isinstance(keycodes_no_up[key], int):
+            temp_scancodes.append(keycodes_no_up[key])
+        else:
+            temp_scancodes = [*temp_scancodes, *keycodes_no_up[key]] # type: ignore
     key_event_list = [
-        {"type": "qcode", "data": key.lower()} for key in arg
+        {"type": "number", "data": key} for key in temp_scancodes
     ]
     await vm_session.execute(
         cmd="send-key",
@@ -215,14 +314,22 @@ async def press(ctx, *args):
     """Send special keys to the VM.
     
     Get a list of valid keys with vb!keys. Also accepts a sequence of keys."""
+    global vm_session
+    temp_scancodes = []
+    for key in args:
+        print(keycodes[key])
+        if isinstance(keycodes_no_up[key], int):
+            temp_scancodes.append(keycodes_no_up[key])
+        else:
+            temp_scancodes = [*temp_scancodes, *keycodes_no_up[key]] # type: ignore
     key_event_list = [
-        {"type": "qcode", "data": key.lower()} for key in args
+        {"type": "number", "data": key} for key in temp_scancodes
     ]
     await vm_session.execute(
         cmd="send-key",
         arguments={"keys": key_event_list}
     )
-    release_special_keys(vm_session)
+    # release_special_keys(vm_session)
     await asyncio.sleep(0.5)
     await get_vm_screenshot(vm_session, 'temp.png')
     await ctx.send('Done!', file=discord.File('temp.png'))
@@ -240,7 +347,7 @@ async def click(ctx, *args):
     await vm_session.execute(
         cmd="input-send-event",
         arguments={
-            "device": "video0",
+
             "events": [
                 {"type": "btn", "data": { "down": True, "button": "left" } }
             ]
@@ -249,7 +356,6 @@ async def click(ctx, *args):
     await vm_session.execute(
         cmd="input-send-event",
         arguments={
-            "device": "video0",
             "events": [
                 {"type": "btn", "data": { "down": False, "button": "left" } }
             ]
@@ -262,10 +368,11 @@ async def click(ctx, *args):
 #Click and hold the mouse
 @mouse.command()
 async def clickhold(ctx, *args):
+    global vm_session
     await vm_session.execute(
         cmd="input-send-event",
         arguments={
-            "device": "video0",
+
             "events": [
                 {"type": "btn", "data": { "down": True, "button": "left" } }
             ]
@@ -278,11 +385,11 @@ async def clickhold(ctx, *args):
 #Right click the mouse.
 @mouse.command()    
 async def rclick(ctx, *args):
-    mouse_state = 0x02
+    global vm_session
     await vm_session.execute(
         cmd="input-send-event",
         arguments={
-            "device": "video0",
+
             "events": [
                 {"type": "btn", "data": { "down": True, "button": "right" } }
             ]
@@ -291,7 +398,7 @@ async def rclick(ctx, *args):
     await vm_session.execute(
         cmd="input-send-event",
         arguments={
-            "device": "video0",
+
             "events": [
                 {"type": "btn", "data": { "down": False, "button": "right" } }
             ]
@@ -304,10 +411,11 @@ async def rclick(ctx, *args):
 #Right click and hold the mouse.
 @mouse.command()
 async def rclickhold(ctx, *args):
+    global vm_session
     await vm_session.execute(
         cmd="input-send-event",
         arguments={
-            "device": "video0",
+
             "events": [
                 {"type": "btn", "data": { "down": True, "button": "right" } }
             ]
@@ -320,10 +428,11 @@ async def rclickhold(ctx, *args):
 #Stop holding any mouse buttons (reset state to 0).
 @mouse.command()
 async def release(ctx, *args):
+    global vm_session
     await vm_session.execute(
         cmd="input-send-event",
         arguments={
-            "device": "video0",
+
             "events": [
                 {"type": "btn", "data": { "down": False, "button": "left" } },
                 {"type": "btn", "data": { "down": False, "button": "right" } }
@@ -338,6 +447,7 @@ async def release(ctx, *args):
 @mouse.command()
 async def right(ctx, pixels):
     global vm_session
+    pixels = int(pixels)
     await vm_session.execute(
         cmd="input-send-event",
         arguments={
@@ -353,6 +463,8 @@ async def right(ctx, pixels):
 #Move the mouse left (-X).
 @mouse.command()
 async def left(ctx, pixels):    
+    global vm_session
+    pixels = int(pixels)
     await vm_session.execute(
         cmd="input-send-event",
         arguments={
@@ -368,6 +480,8 @@ async def left(ctx, pixels):
 #Move the mouse down (+Y).
 @mouse.command()
 async def down(ctx, pixels):
+    global vm_session
+    pixels = int(pixels)
     await vm_session.execute(
         cmd="input-send-event",
         arguments={
@@ -383,6 +497,7 @@ async def down(ctx, pixels):
 #Move the mouse up (-Y).
 @mouse.command()
 async def up(ctx, pixels):
+    pixels = int(pixels)
     global vm_session
     await vm_session.execute(
         cmd="input-send-event",
@@ -399,6 +514,7 @@ async def up(ctx, pixels):
 #Scroll the mouse wheel.
 @mouse.command()
 async def scroll(ctx, pixels, direction):
+    pixels = int(pixels)
     global vm_session
     if direction == "up":
         button = "wheel-up" # must explicitly go up
@@ -409,7 +525,7 @@ async def scroll(ctx, pixels, direction):
         await vm_session.execute(
             cmd="input-send-event",
             arguments={
-                "device": "video0",
+    
                 "events": [
                     {"type": "btn", "data": { "down": True, "button": button } }
                 ]
@@ -418,7 +534,7 @@ async def scroll(ctx, pixels, direction):
         await vm_session.execute(
             cmd="input-send-event",
             arguments={
-                "device": "video0",
+    
                 "events": [
                     {"type": "btn", "data": { "down": False, "button": button } }
                 ]
