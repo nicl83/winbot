@@ -143,7 +143,7 @@ keycodes = {
     'win': (0xe0, 0x5b, 0xe0, 0xdb)
 }
 
-intents = discord.Intents(messages=True, guilds=True)
+intents = discord.Intents(messages=True, guilds=True, message_content=True)
 bot = commands.Bot(command_prefix = prefix, intents = intents, owner_id=owner_id)
 mouse_state = dict()
 
@@ -152,7 +152,7 @@ vm_session = QMPClient(vm_name)
 @bot.event
 async def on_ready():
     global vm_session
-    await vm_session.connect('127.0.0.1')
+    await vm_session.connect(('127.0.0.1', 4444))
     await get_vm_screenshot(vm_session, 'temp.png')
     channel = bot.get_channel(channel_id)
     await channel.send('Winbot has started! Current VM state:', file=discord.File('temp.png')) # type: ignore
@@ -176,7 +176,7 @@ async def get_vm_screenshot(vm_sesh: QMPClient, file_name: str):
     await vm_sesh.execute(
         cmd="screendump",
         arguments={
-            "path": str(screenshot_path),
+            "filename": str(screenshot_path),
             "format": "png"
         }
     )
@@ -464,7 +464,7 @@ async def reload(ctx):
         print(f"Owner ID: {owner_id}")
         print(f"Channel ID: {channel_id}")
         vm_session = QMPClient(name=vm_name)
-        await vm_session.connect('127.0.0.1')
+        await vm_session.connect(('127.0.0.1', 4444))
         await ctx.send("Config reloaded!")
     else:
         await ctx.send("You are not the owner.")
