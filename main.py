@@ -5,6 +5,7 @@ import asyncio
 import traceback
 from qemu.qmp import QMPClient
 import pathlib
+import PIL.Image as Image
 
 from discord.ext import commands
 from configparser import ConfigParser as configparser
@@ -47,6 +48,16 @@ print(f"Prefix: {prefix}")
 print(f"VM name: {vm_name}")
 print(f"Owner ID: {owner_id}")
 print(f"Channel ID: {channel_id}")
+
+bgrfix = (
+ 0, 0, 1, 0,
+ 0, 1, 0, 0,
+ 1, 0, 0, 0
+)
+def fiximage(filename="temp.png"):
+    with Image.open(filename) as image:
+        im_converted = image.convert("RGB").convert(mode="RGB",matrix=bgrfix)
+    im_converted.convert(mode="RGBA").save(filename)
 
 #i hate this next section of code.
 #i never want to touch keycodes again.
@@ -273,6 +284,7 @@ async def get_vm_screenshot(vm_sesh: QMPClient, file_name: str):
             "format": "png"
         }
     )
+    fiximage(str(screenshot_path))
 
 
 @bot.command()
