@@ -1,4 +1,11 @@
-import virtualbox, discord, sys, asyncio, traceback
+# import discord, sys, asyncio, traceback
+import discord
+import sys
+import asyncio
+import traceback
+from qemu.qmp import QMPClient
+import pathlib
+
 from discord.ext import commands
 from configparser import ConfigParser as configparser
 
@@ -136,20 +143,19 @@ keycodes = {
     'win': (0xe0, 0x5b, 0xe0, 0xdb)
 }
 
-bot = commands.Bot(command_prefix = prefix)
-bot.owner_id = owner_id
-bot.channel_id = channel_id
-bot.mouse_state = 0
+intents = discord.Intents(messages=True, guilds=True)
+bot = commands.Bot(command_prefix = prefix, intents = intents, owner_id=owner_id)
+mouse_state = dict()
 
-bot.vbox = virtualbox.VirtualBox()
-bot.vm = bot.vbox.find_machine(vm_name)
-bot.session = bot.vm.create_session()
+vm_session = QMPClient(vm_name)
 
 @bot.event
 async def on_ready():
-    get_vm_screenshot(bot.session, 'temp.png')
-    channel = bot.get_channel(bot.channel_id)
-    await channel.send('Winbot has started! Current VM state:', file=discord.File('temp.png'))
+    global vm_session
+    await vm_session.connect('127.0.0.1')
+    await get_vm_screenshot(vm_session, 'temp.png')
+    channel = bot.get_channel(channel_id)
+    await channel.send('Winbot has started! Current VM state:', file=discord.File('temp.png')) # type: ignore
 
 @bot.event
 async def on_command_error(ctx, exception):
@@ -165,25 +171,38 @@ async def ping(ctx):
     await ctx.send('Pong!')
 
 #Get image of VM
-def get_vm_screenshot(vm_sesh, file_name):
-    h, w, _, _, _, _ = vm_sesh.console.display.get_screen_resolution(0)
-    png = vm_sesh.console.display.take_screen_shot_to_array(0, h, w, virtualbox.library.BitmapFormat.png)
-    with open(file_name, 'wb') as file:
-        file.write(png)
+async def get_vm_screenshot(vm_sesh: QMPClient, file_name: str):
+    screenshot_path = (pathlib.Path(__file__).parent/file_name).resolve()
+    await vm_sesh.execute(
+        cmd="screendump",
+        arguments={
+            "path": str(screenshot_path),
+            "format": "png"
+        }
+    )
+
 
 @bot.command()
 async def screen(ctx):
     """Get a screenshot of the VM."""
-    get_vm_screenshot(bot.session, 'temp.png')
+    await get_vm_screenshot(vm_session, 'temp.png')
     await ctx.send('Say cheese!', file=discord.File('temp.png'))
 
 #Send long string or normal chars to VM
 @bot.command()
 async def type(ctx, *, arg):
     """Sends a long string of text to the VM, followed by a newline."""
-    bot.session.console.keyboard.put_keys(arg + '\n')
+    global vm_session
+    # vm_session.console.keyboard.put_keys(arg + '\n')
+    key_event_list = [
+        {"type": "qcode", "data": key.lower()} for key in arg
+    ]
+    await vm_session.execute(
+        cmd="send-key",
+        arguments={"keys": key_event_list}
+    )
     await asyncio.sleep(0.5)
-    get_vm_screenshot(bot.session, 'temp.png')
+    await get_vm_screenshot(vm_session, 'temp.png')
     await ctx.send('Done!', file=discord.File('temp.png'))
 
 #Send special buttons to the VM
@@ -196,24 +215,17 @@ async def press(ctx, *args):
     """Send special keys to the VM.
     
     Get a list of valid keys with vb!keys. Also accepts a sequence of keys."""
-    try:
-        temp_scancodes = []
-        for key in args:
-            print(keycodes[key])
-            if isinstance(keycodes[key], int):
-                temp_scancodes.append(keycodes[key])
-            else:
-                temp_scancodes = [*temp_scancodes, *keycodes[key]]
-        print(temp_scancodes)
-        bot.session.console.keyboard.put_scancodes(temp_scancodes)
-        release_special_keys(bot.session)
-        await asyncio.sleep(0.5)
-        get_vm_screenshot(bot.session, 'temp.png')
-        await ctx.send('Done!', file=discord.File('temp.png'))
-        bot.session.console.keyboard.release_keys()
-    except Exception as e:
-        print(repr(e))
-        await ctx.send("Something went wrong whilst doing that, try again or check the log!")
+    key_event_list = [
+        {"type": "qcode", "data": key.lower()} for key in args
+    ]
+    await vm_session.execute(
+        cmd="send-key",
+        arguments={"keys": key_event_list}
+    )
+    release_special_keys(vm_session)
+    await asyncio.sleep(0.5)
+    await get_vm_screenshot(vm_session, 'temp.png')
+    await ctx.send('Done!', file=discord.File('temp.png'))
 
 #Send a mouse command
 @bot.group()
@@ -224,103 +236,197 @@ async def mouse(ctx):
 #Click the mouse
 @mouse.command()
 async def click(ctx, *args):
-    bot.mouse_state = 0x01
-    bot.session.console.mouse.put_mouse_event(0, 0, 0, 0, bot.mouse_state)
-    bot.mouse_state = 0x00
-    bot.session.console.mouse.put_mouse_event(0, 0, 0, 0, bot.mouse_state)
+    global vm_session
+    await vm_session.execute(
+        cmd="input-send-event",
+        arguments={
+            "device": "video0",
+            "events": [
+                {"type": "btn", "data": { "down": True, "button": "left" } }
+            ]
+        }
+    )
+    await vm_session.execute(
+        cmd="input-send-event",
+        arguments={
+            "device": "video0",
+            "events": [
+                {"type": "btn", "data": { "down": False, "button": "left" } }
+            ]
+        }
+    )
     await asyncio.sleep(0.5)
-    get_vm_screenshot(bot.session, 'temp.png')
+    await get_vm_screenshot(vm_session, 'temp.png')
     await ctx.send('Done!', file=discord.File('temp.png'))
 
 #Click and hold the mouse
 @mouse.command()
 async def clickhold(ctx, *args):
-    bot.mouse_state = 0x01
-    bot.session.console.mouse.put_mouse_event(0, 0, 0, 0, bot.mouse_state)
+    await vm_session.execute(
+        cmd="input-send-event",
+        arguments={
+            "device": "video0",
+            "events": [
+                {"type": "btn", "data": { "down": True, "button": "left" } }
+            ]
+        }
+    )
     await asyncio.sleep(0.5)
-    get_vm_screenshot(bot.session, 'temp.png')
+    await get_vm_screenshot(vm_session, 'temp.png')
     await ctx.send('Done!', file=discord.File('temp.png'))
 
 #Right click the mouse.
 @mouse.command()    
 async def rclick(ctx, *args):
-    bot.mouse_state = 0x02
-    bot.session.console.mouse.put_mouse_event(0, 0, 0, 0, bot.mouse_state)
-    bot.mouse_state = 0x00
-    bot.session.console.mouse.put_mouse_event(0, 0, 0, 0, bot.mouse_state)
+    mouse_state = 0x02
+    await vm_session.execute(
+        cmd="input-send-event",
+        arguments={
+            "device": "video0",
+            "events": [
+                {"type": "btn", "data": { "down": True, "button": "right" } }
+            ]
+        }
+    )
+    await vm_session.execute(
+        cmd="input-send-event",
+        arguments={
+            "device": "video0",
+            "events": [
+                {"type": "btn", "data": { "down": False, "button": "right" } }
+            ]
+        }
+    )
     await asyncio.sleep(0.5)
-    get_vm_screenshot(bot.session, 'temp.png')
+    await get_vm_screenshot(vm_session, 'temp.png')
     await ctx.send('Done!', file=discord.File('temp.png'))
 
 #Right click and hold the mouse.
 @mouse.command()
 async def rclickhold(ctx, *args):
-    bot.mouse_state = 0x02
-    bot.session.console.mouse.put_mouse_event(0, 0, 0, 0, bot.mouse_state)
+    await vm_session.execute(
+        cmd="input-send-event",
+        arguments={
+            "device": "video0",
+            "events": [
+                {"type": "btn", "data": { "down": True, "button": "right" } }
+            ]
+        }
+    )
     await asyncio.sleep(0.5)
-    get_vm_screenshot(bot.session, 'temp.png')
+    await get_vm_screenshot(vm_session, 'temp.png')
     await ctx.send('Done!', file=discord.File('temp.png'))
 
 #Stop holding any mouse buttons (reset state to 0).
 @mouse.command()
 async def release(ctx, *args):
-    bot.mouse_state = 0x00
-    bot.session.console.mouse.put_mouse_event(0, 0, 0, 0, bot.mouse_state)
+    await vm_session.execute(
+        cmd="input-send-event",
+        arguments={
+            "device": "video0",
+            "events": [
+                {"type": "btn", "data": { "down": False, "button": "left" } },
+                {"type": "btn", "data": { "down": False, "button": "right" } }
+            ]
+        }
+    )
     await asyncio.sleep(0.5)
-    get_vm_screenshot(bot.session, 'temp.png')
+    await get_vm_screenshot(vm_session, 'temp.png')
     await ctx.send('Done!', file=discord.File('temp.png'))
 
 #Move the mouse right (+X).
 @mouse.command()
 async def right(ctx, pixels):
-    bot.session.console.mouse.put_mouse_event(int(pixels), 0, 0, 0, bot.mouse_state)
+    global vm_session
+    await vm_session.execute(
+        cmd="input-send-event",
+        arguments={
+            "events": [
+                {"type": "rel", "data": {"axis": "x", "value": pixels}}
+            ]
+        }
+    )
     await asyncio.sleep(0.5)
-    get_vm_screenshot(bot.session, 'temp.png')
+    await get_vm_screenshot(vm_session, 'temp.png')
     await ctx.send('Done!', file=discord.File('temp.png'))
 
 #Move the mouse left (-X).
 @mouse.command()
-async def left(ctx, pixels):
-    bot.session.console.mouse.put_mouse_event(0-int(pixels), 0, 0, 0, bot.mouse_state)
+async def left(ctx, pixels):    
+    await vm_session.execute(
+        cmd="input-send-event",
+        arguments={
+            "events": [
+                {"type": "rel", "data": {"axis": "x", "value": 0-pixels}}
+            ]
+        }
+    )
     await asyncio.sleep(0.5)
-    get_vm_screenshot(bot.session, 'temp.png')
+    await get_vm_screenshot(vm_session, 'temp.png')
     await ctx.send('Done!', file=discord.File('temp.png'))
 
 #Move the mouse down (+Y).
 @mouse.command()
 async def down(ctx, pixels):
-    bot.session.console.mouse.put_mouse_event(0, int(pixels), 0, 0, bot.mouse_state)
+    await vm_session.execute(
+        cmd="input-send-event",
+        arguments={
+            "events": [
+                {"type": "rel", "data": {"axis": "y", "value": pixels}}
+            ]
+        }
+    )
     await asyncio.sleep(0.5)
-    get_vm_screenshot(bot.session, 'temp.png')
+    await get_vm_screenshot(vm_session, 'temp.png')
     await ctx.send('Done!', file=discord.File('temp.png'))
 
 #Move the mouse up (-Y).
 @mouse.command()
 async def up(ctx, pixels):
-    bot.session.console.mouse.put_mouse_event(0, 0-int(pixels), 0, 0, bot.mouse_state)
+    global vm_session
+    await vm_session.execute(
+        cmd="input-send-event",
+        arguments={
+            "events": [
+                {"type": "rel", "data": {"axis": "y", "value": 0-pixels}}
+            ]
+        }
+    )
     await asyncio.sleep(0.5)
-    get_vm_screenshot(bot.session, 'temp.png')
+    await get_vm_screenshot(vm_session, 'temp.png')
     await ctx.send('Done!', file=discord.File('temp.png'))
 
 #Scroll the mouse wheel.
 @mouse.command()
-async def scroll(ctx, pixels):
-    bot.session.console.mouse.put_mouse_event(0, 0, int(pixels), 0, bot.mouse_state)
+async def scroll(ctx, pixels, direction):
+    global vm_session
+    if direction == "up":
+        button = "wheel-up" # must explicitly go up
+    else:
+        button = "wheel-down"
+    global vm_session
+    for x in range(0,pixels):
+        await vm_session.execute(
+            cmd="input-send-event",
+            arguments={
+                "device": "video0",
+                "events": [
+                    {"type": "btn", "data": { "down": True, "button": button } }
+                ]
+            }
+        )
+        await vm_session.execute(
+            cmd="input-send-event",
+            arguments={
+                "device": "video0",
+                "events": [
+                    {"type": "btn", "data": { "down": False, "button": button } }
+                ]
+            }
+        )
     await asyncio.sleep(0.5)
-    get_vm_screenshot(bot.session, 'temp.png')
+    await get_vm_screenshot(vm_session, 'temp.png')
     await ctx.send('Done!', file=discord.File('temp.png'))
-
-#Send a raw put_mouse_event command. (Semi-secret)    
-@mouse.command()
-async def rawcommand(ctx, *args):
-        if len(args) == 5:
-            bot.session.console.mouse.put_mouse_event(int(args[1]), int(args[2]), int(args[3]), int(args[4]), int(args[5]))
-            await asyncio.sleep(0.5)
-            get_vm_screenshot(bot.session, 'temp.png')
-            await ctx.send('Done!', file=discord.File('temp.png'))
-        else:
-            await ctx.send("uh uh uh, you didn't say the magic words!")
-
 
 
 #List available keys
@@ -335,10 +441,11 @@ async def keys(ctx):
 @bot.command()
 async def reset(ctx):
     """Reset the VM. Owner only."""
+    global vm_session
     if ctx.author.id == owner_id:
-        bot.session.console.reset()
+        await vm_session.execute(cmd="system_reset")
         await asyncio.sleep(0.5)
-        get_vm_screenshot(bot.session, 'temp.png')
+        await get_vm_screenshot(vm_session, 'temp.png')
         await ctx.send('Done!', file=discord.File('temp.png'))
     else:
         await ctx.send("You are not the owner.")
@@ -347,20 +454,17 @@ async def reset(ctx):
 @bot.command()
 @commands.has_any_role('vm bot user')
 async def reload(ctx):
+    global vm_session
     """Reload the bot config files.
     
     Will also reload other config files, when added."""
     if ctx.author.id == bot.owner_id:
-        _, _, vm_name, bot.owner_id, bot.channel_id = load_config(config_file)
+        _, _, vm_name, bot.owner_id, channel_id = load_config(config_file)
         print(f"VM name: {vm_name}")
         print(f"Owner ID: {owner_id}")
         print(f"Channel ID: {channel_id}")
-        try:
-            bot.session.unlock_machine()
-        except:
-            print("Warning: session not unlocked. You probably don't need to worry about this.")
-        bot.vm = bot.vbox.find_machine(vm_name)
-        bot.session = bot.vm.create_session()
+        vm_session = QMPClient(name=vm_name)
+        await vm_session.connect('127.0.0.1')
         await ctx.send("Config reloaded!")
     else:
         await ctx.send("You are not the owner.")
