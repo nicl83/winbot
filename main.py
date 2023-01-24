@@ -256,7 +256,12 @@ qemu_aliases = {
     'cmd': 'meta_l',
     'opt': 'alt',
     'space': 'spc',
-    'enter': 'ret'
+    'enter': 'ret',
+    '.': 'dot',
+    'failtest': 451,
+    '?': ['shift', 'slash'],
+    '/': 'slash',
+    ':': ['shift', 'semicolon']
 }
 
 intents = discord.Intents(messages=True, guilds=True, message_content=True)
@@ -306,19 +311,29 @@ async def screen(ctx):
     await ctx.send('Say cheese!', file=discord.File('temp.png'))
 
 #Send long string or normal chars to VM
-@bot.command()
-async def type(ctx, *, arg: str):
+@bot.command(name='type')
+async def bot_type(ctx, *, arg: str):
     """Sends a long string of text to the VM, followed by a newline."""
     global vm_session
     for key in arg:
         if key.lower() not in qemu_keys:
             if key in qemu_aliases.keys():
-                await vm_session.execute(
-                    cmd="send-key",
-                    arguments={"keys": [
-                        {"type": "qcode", "data": qemu_aliases[key]}
-                    ]}
-                )
+                if type(qemu_aliases[key]) == str:
+                    await vm_session.execute(
+                        cmd="send-key",
+                        arguments={"keys": [
+                            {"type": "qcode", "data": qemu_aliases[key]}
+                        ]}
+                    )
+                elif type(qemu_aliases[key]) == list:
+                        await vm_session.execute(
+                            cmd="send-key",
+                            arguments={"keys": [
+                                {"type": "qcode", "data": x} for x in qemu_aliases[key]
+                            ]}
+                        )
+                else:
+                    await ctx.send(f"secret third thing error: {qemu_aliases[key]}")
             else:    
                 await ctx.send(f"Unkown key: {key}")
                 await asyncio.sleep(0.1)
@@ -363,12 +378,19 @@ async def press(ctx, *args):
         key = key.lower() # discard case sensitivity
         if key not in qemu_keys:
             if key in qemu_aliases.keys():
-                await vm_session.execute(
-                    cmd="send-key",
-                    arguments={"keys": [
-                        {"type": "qcode", "data": qemu_aliases[key]}
-                    ]}
-                )
+                if type(qemu_aliases[key]) == str:
+                    key_event_list.append({
+                        "type": "qcode",
+                        "data": qemu_aliases[key]
+                    })
+                elif type(qemu_aliases[key]) == list:
+                    for entry in qemu_aliases[key]:
+                        key_event_list.append({
+                        "type": "qcode",
+                        "data": entry
+                    })
+                else:
+                    await ctx.send(f"secret third thing error: {qemu_aliases[key]}")
             else:    
                 await ctx.send(f"Unkown key: {key}")
                 await asyncio.sleep(0.1)
@@ -656,7 +678,7 @@ async def reload(ctx):
         await ctx.send("Config reloaded!")
     else:
         await ctx.send("You are not the owner.")
-
+        
 @bot.command()
 @commands.is_owner()
 async def raw_command(ctx, command: str, args: str):
