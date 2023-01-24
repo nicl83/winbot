@@ -248,6 +248,17 @@ keycodes_no_up = {
     'win': (0xe0, 0x5b)
 }
 
+qemu_keys = ['unmapped', 'pause', 'ro', 'kp_comma', 'kp_equals', 'power', 'hiragana', 'henkan', 'yen', 'sleep', 'wake', 'audionext', 'audioprev', 'audiostop', 'audioplay', 'audiomute', 'volumeup', 'volumedown', 'mediaselect', 'mail', 'calculator', 'computer', 'ac_home', 'ac_back', 'ac_forward', 'ac_refresh', 'ac_bookmarks', 'muhenkan', 'katakanahiragana', 'lang1', 'lang2', 'shift', 'shift_r', 'alt', 'alt_r', 'ctrl', 'ctrl_r', 'menu', 'esc', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'minus', 'equal', 'backspace', 'tab', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', 'bracket_left', 'bracket_right', 'ret', 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'semicolon', 'apostrophe', 'grave_accent', 'backslash', 'z', 'x', 'c', 'v', 'b', 'n', 'm', 'comma', 'dot', 'slash', 'asterisk', 'spc', 'caps_lock', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'num_lock', 'scroll_lock', 'kp_divide', 'kp_multiply', 'kp_subtract', 'kp_add', 'kp_enter', 'kp_decimal', 'sysrq', 'kp_0', 'kp_1', 'kp_2', 'kp_3', 'kp_4', 'kp_5', 'kp_6', 'kp_7', 'kp_8', 'kp_9', 'less', 'f11', 'f12', 'print', 'home', 'pgup', 'pgdn', 'end', 'left', 'up', 'down', 'right', 'insert', 'delete', 'stop', 'again', 'props', 'undo', 'front', 'copy', 'open', 'paste', 'find', 'cut', 'lf', 'help', 'meta_l', 'meta_r', 'compose']
+
+qemu_aliases = {
+    ' ': 'spc',
+    'win': 'meta_l',
+    'cmd': 'meta_l',
+    'opt': 'alt',
+    'space': 'spc',
+    'enter': 'ret'
+}
+
 intents = discord.Intents(messages=True, guilds=True, message_content=True)
 bot = commands.Bot(command_prefix = prefix, intents = intents, owner_id=owner_id)
 mouse_state = dict()
@@ -296,25 +307,41 @@ async def screen(ctx):
 
 #Send long string or normal chars to VM
 @bot.command()
-async def type(ctx, *, arg):
+async def type(ctx, *, arg: str):
     """Sends a long string of text to the VM, followed by a newline."""
     global vm_session
-    temp_scancodes = []
     for key in arg:
-        print(keycodes[key])
-        if isinstance(keycodes_no_up[key], int):
-            temp_scancodes.append(keycodes_no_up[key])
+        if key.lower() not in qemu_keys:
+            if key in qemu_aliases.keys():
+                await vm_session.execute(
+                    cmd="send-key",
+                    arguments={"keys": [
+                        {"type": "qcode", "data": qemu_aliases[key]}
+                    ]}
+                )
+            else:    
+                await ctx.send(f"Unkown key: {key}")
+                await asyncio.sleep(0.1)
+        elif key.isupper():
+            await vm_session.execute(
+                cmd="send-key",
+                arguments={"keys": [
+                    {"type": "qcode", "data": "shift"},
+                    {"type": "qcode", "data": key.lower()}
+                ]}
+            )
         else:
-            temp_scancodes = [*temp_scancodes, *keycodes_no_up[key]] # type: ignore
-    key_event_list = [
-        {"type": "number", "data": key} for key in temp_scancodes
-    ]
-    key_event_list.append(
-        {"type": "number", "data": keycodes_no_up['enter']}
-    )
+            await vm_session.execute(
+                cmd="send-key",
+                arguments={"keys": [
+                    {"type": "qcode", "data": key}
+                ]}
+            )
     await vm_session.execute(
         cmd="send-key",
-        arguments={"keys": key_event_list}
+        arguments={"keys": [
+            {"type": "qcode", "data": "ret"}
+        ]}
     )
     await asyncio.sleep(0.5)
     await get_vm_screenshot(vm_session, 'temp.png')
@@ -331,21 +358,50 @@ async def press(ctx, *args):
     
     Get a list of valid keys with vb!keys. Also accepts a sequence of keys."""
     global vm_session
-    temp_scancodes = []
+    key_event_list = []
     for key in args:
-        print(keycodes[key])
-        if isinstance(keycodes_no_up[key], int):
-            temp_scancodes.append(keycodes_no_up[key])
+        key = key.lower() # discard case sensitivity
+        if key not in qemu_keys:
+            if key in qemu_aliases.keys():
+                await vm_session.execute(
+                    cmd="send-key",
+                    arguments={"keys": [
+                        {"type": "qcode", "data": qemu_aliases[key]}
+                    ]}
+                )
+            else:    
+                await ctx.send(f"Unkown key: {key}")
+                await asyncio.sleep(0.1)
         else:
-            temp_scancodes = [*temp_scancodes, *keycodes_no_up[key]] # type: ignore
-    key_event_list = [
-        {"type": "number", "data": key} for key in temp_scancodes
-    ]
+            key_event_list.append({
+                "type": "qcode",
+                "data": key
+            })
     await vm_session.execute(
         cmd="send-key",
         arguments={"keys": key_event_list}
     )
     # release_special_keys(vm_session)
+    await asyncio.sleep(0.5)
+    await get_vm_screenshot(vm_session, 'temp.png')
+    await ctx.send('Done!', file=discord.File('temp.png'))
+
+@bot.command()
+async def backspace(ctx, count):
+    "Really fuckin delete something"
+    global vm_session
+    try:
+        count = int(count)
+    except:
+        await ctx.send("gotta be a number")
+        return
+    for x in range(0,count):
+        await vm_session.execute(
+                cmd="send-key",
+                arguments={"keys": [
+                    {"type": "qcode", "data": 'backspace'}
+                ]}
+            )
     await asyncio.sleep(0.5)
     await get_vm_screenshot(vm_session, 'temp.png')
     await ctx.send('Done!', file=discord.File('temp.png'))
@@ -565,9 +621,9 @@ async def scroll(ctx, pixels, direction):
 @bot.command()
 async def keys(ctx):
     """Get a list of keys you can use with vb!press"""
-    keys = list(keycodes.keys())
-    keys.sort()
-    await ctx.send(f"`{keys}`")
+    temp_keys = qemu_keys
+    temp_keys.sort()
+    await ctx.send(f"`{temp_keys}`")
 
 #Reset the VM
 @bot.command()
@@ -600,4 +656,22 @@ async def reload(ctx):
         await ctx.send("Config reloaded!")
     else:
         await ctx.send("You are not the owner.")
+
+@bot.command()
+@commands.is_owner()
+async def raw_command(ctx, command: str, args: str):
+    global vm_session
+    """
+    Send a raw command to the QMP server.
+    Admin only for obvious reasons.
+    """
+    if args is not None:
+        cmd_args = eval(args)
+    else:
+        cmd_args = None
+    await ctx.send(f"Command: {command}, args: {cmd_args}")
+    resp = await vm_session.execute(cmd=command, arguments=cmd_args)
+    await ctx.send("Server replies:")
+    await ctx.send(f"```\n{resp}\n```")
+
 bot.run(token)
