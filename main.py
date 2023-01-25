@@ -673,5 +673,11 @@ async def raw_command(ctx, command: str, args: str):
     resp = await vm_session.execute(cmd=command, arguments=cmd_args)
     await ctx.send("Server replies:")
     await ctx.send(f"```\n{resp}\n```")
-
+    
+   
+@bot.command()
+async def upload(ctx):
+    await ctx.save(file) #save le file from user
+    file=discord.File(r'upload') # i assume this will copy it in the folder main.py is running in please amend if it doesn't
+    
 bot.run(token)
