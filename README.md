@@ -1,6 +1,6 @@
 # winbot
 A Discord bot for interfacing with a QEMU VM.
-> Fair warning, this branch is *very* buggy as its pretty much a quick dirty port of the VirtualBox version to QEMU.
+> Fair warning, this branch is *very* buggy as it's pretty much a quick dirty port of the VirtualBox version to QEMU.
 
 ## Pre-Setup
 1. Install [Python 3](https://www.python.org/downloads/).
@@ -9,8 +9,8 @@ A Discord bot for interfacing with a QEMU VM.
 
 ## Setup
 1. Run `main.py` once. It should generate a new file, `winbot.ini`.
-2. Fill out `winbot.ini` with values of your choice. `token` is your Discord bot token, `prefix` is the bot's prefix, `channel_id` is where the startup message will be sent, and `owner_id` is the User ID of the bot owner.
-3. Start a QEMU VM with `-qmp tcp:localhost:4444,server,nowait` appended to the end of it's launch options.
+2. Fill out `winbot.ini` with values of your choice. `token` is your Discord bot token, `prefix` is the bot's prefix, `channel_id` is the Text Channel ID of where the bot's startup message will be sent and `owner_id` is the User ID of the bot's owner.
+3. Start a QEMU VM with `-qmp tcp:localhost:4444,server,nowait` appended to the end of its launch options.
 5. Start the bot by running `main.py`.
 6. Go nuts!
 > Note: You can ignore `vm_name` safely as it is no longer needed, unless you are running multiple QMP enabled QEMU instances at once.
