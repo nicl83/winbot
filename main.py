@@ -270,6 +270,17 @@ mouse_state = dict()
 
 vm_session = QMPClient(vm_name)
 
+async def send_key(key_names: list[str], session=vm_session):
+    """Send keys to the VM. Wrapper around QMP 'send-key' command.
+    Assumes you know what you're doing already, will not error handle."""
+    await session.execute(
+        cmd="send-key",
+        arguments={"keys": [
+            {"type": "qcode", "data": key} for key in key_names
+        ]}
+    )
+
+
 @bot.event
 async def on_ready():
     global vm_session
@@ -319,45 +330,19 @@ async def bot_type(ctx, *, arg: str):
         if key.lower() not in qemu_keys:
             if key in qemu_aliases.keys():
                 if type(qemu_aliases[key]) == str:
-                    await vm_session.execute(
-                        cmd="send-key",
-                        arguments={"keys": [
-                            {"type": "qcode", "data": qemu_aliases[key]}
-                        ]}
-                    )
+                    await send_key([qemu_aliases[key]])
                 elif type(qemu_aliases[key]) == list:
-                        await vm_session.execute(
-                            cmd="send-key",
-                            arguments={"keys": [
-                                {"type": "qcode", "data": x} for x in qemu_aliases[key]
-                            ]}
-                        )
+                    await send_key(qemu_aliases[key])
                 else:
                     await ctx.send(f"secret third thing error: {qemu_aliases[key]}")
             else:    
                 await ctx.send(f"Unkown key: {key}")
                 await asyncio.sleep(0.1)
         elif key.isupper():
-            await vm_session.execute(
-                cmd="send-key",
-                arguments={"keys": [
-                    {"type": "qcode", "data": "shift"},
-                    {"type": "qcode", "data": key.lower()}
-                ]}
-            )
+            await send_key(["shift", key.lower()])
         else:
-            await vm_session.execute(
-                cmd="send-key",
-                arguments={"keys": [
-                    {"type": "qcode", "data": key}
-                ]}
-            )
-    await vm_session.execute(
-        cmd="send-key",
-        arguments={"keys": [
-            {"type": "qcode", "data": "ret"}
-        ]}
-    )
+            await send_key([key])
+    await send_key(["ret"])
     await asyncio.sleep(0.5)
     await get_vm_screenshot(vm_session, 'temp.png')
     await ctx.send('Done!', file=discord.File('temp.png'))
@@ -373,36 +358,23 @@ async def press(ctx, *args):
     
     Get a list of valid keys with vb!keys. Also accepts a sequence of keys."""
     global vm_session
-    key_event_list = []
+    key_name_list = []
     for key in args:
         key = key.lower() # discard case sensitivity
         if key not in qemu_keys:
             if key in qemu_aliases.keys():
                 if type(qemu_aliases[key]) == str:
-                    key_event_list.append({
-                        "type": "qcode",
-                        "data": qemu_aliases[key]
-                    })
+                    key_name_list.append(qemu_aliases[key])
                 elif type(qemu_aliases[key]) == list:
-                    for entry in qemu_aliases[key]:
-                        key_event_list.append({
-                        "type": "qcode",
-                        "data": entry
-                    })
+                    key_name_list.extend(qemu_aliases[key])
                 else:
                     await ctx.send(f"secret third thing error: {qemu_aliases[key]}")
             else:    
                 await ctx.send(f"Unkown key: {key}")
                 await asyncio.sleep(0.1)
         else:
-            key_event_list.append({
-                "type": "qcode",
-                "data": key
-            })
-    await vm_session.execute(
-        cmd="send-key",
-        arguments={"keys": key_event_list}
-    )
+            key_name_list.append(key)
+    await send_key(key_name_list)
     # release_special_keys(vm_session)
     await asyncio.sleep(0.5)
     await get_vm_screenshot(vm_session, 'temp.png')
@@ -418,12 +390,7 @@ async def backspace(ctx, count):
         await ctx.send("gotta be a number")
         return
     for x in range(0,count):
-        await vm_session.execute(
-                cmd="send-key",
-                arguments={"keys": [
-                    {"type": "qcode", "data": 'backspace'}
-                ]}
-            )
+        await send_key(["backspace"])
     await asyncio.sleep(0.5)
     await get_vm_screenshot(vm_session, 'temp.png')
     await ctx.send('Done!', file=discord.File('temp.png'))
@@ -678,7 +645,7 @@ async def reload(ctx):
         await ctx.send("Config reloaded!")
     else:
         await ctx.send("You are not the owner.")
-        
+
 @bot.command()
 @commands.is_owner()
 async def raw_command(ctx, command: str, args: str):
