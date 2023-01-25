@@ -19,7 +19,7 @@ A Discord bot for interfacing with a QEMU VM.
 ```
   backspace   Really fuckin delete something.
   help        Shows this message.
-  keys        Get a list of keys you can use with vb!press
+  keys        Get a list of keys you can use with the 'press' command.
   mouse       Control the mouse.
   ping        Ping Pong!
   press       Send special keys to the VM.
